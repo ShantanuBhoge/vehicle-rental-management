@@ -1,0 +1,10 @@
+{
+  "name": "vehicle-rental-management",
+  "version": "1.0.0",
+  "description": "Full-Stack Vehicle Rental & Fleet Management System",
+  "main": "backend/app.js",
+  "scripts": {
+    "build": "npm install --prefix backend",
+    "start": "node backend/app.js"
+  }
+}
