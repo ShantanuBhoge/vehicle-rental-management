@@ -982,16 +982,31 @@ body {
     }
 
     .top-navbar {
-        padding: 8px 10px;
+        padding: 10px 12px;
+    }
+
+    .nav-container {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        align-items: center;
+        gap: 8px 10px;
+        width: 100%;
+    }
+
+    .brand-logo {
+        grid-column: 1;
+        grid-row: 1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
     }
 
     .brand-title {
         font-size: 15px;
         letter-spacing: -0.3px;
-    }
-
-    .brand-logo {
-        gap: 8px;
+        white-space: nowrap;
     }
 
     .logo-icon {
@@ -999,6 +1014,20 @@ body {
         height: 30px;
         font-size: 14px;
         border-radius: 6px;
+        flex-shrink: 0;
+    }
+
+    .user-profile-controls {
+        grid-column: 2;
+        grid-row: 1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+    }
+
+    .role-badge.guest {
+        display: none !important;
     }
 
     .role-badge {
@@ -1007,26 +1036,37 @@ body {
         border-radius: 10px;
     }
 
-    .user-profile-controls {
-        gap: 6px;
-    }
-
     .user-profile-controls .btn {
-        font-size: 11.5px;
-        padding: 5px 10px;
-        border-radius: 6px;
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        white-space: nowrap;
     }
 
     .nav-links {
-        padding: 3px;
-        border-radius: 8px;
+        grid-column: 1 / -1;
+        grid-row: 2;
+        width: 100%;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        display: flex;
         gap: 4px;
+        padding: 4px 6px;
+        background: #f1f5f9;
+        border-radius: 10px;
+    }
+
+    .nav-links::-webkit-scrollbar {
+        display: none;
     }
 
     .nav-item {
-        font-size: 11px;
-        padding: 5px 9px;
-        border-radius: 6px;
+        font-size: 11.5px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        flex-shrink: 0;
     }
 
     .app-container {
