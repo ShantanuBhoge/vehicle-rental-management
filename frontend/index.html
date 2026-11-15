@@ -769,18 +769,20 @@
                         </div>
 
                         <div id="authDemoHint"
-                            style="font-size: 11.5px; color: var(--text-muted); margin-top: 10px; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border-left: 4px solid var(--primary-blue);">
+                            style="font-size: 12px; color: #1e293b; margin-top: 12px; margin-bottom: 6px; padding: 12px 14px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a;">
                             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                                 <div>
-                                    <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">
-                                        <i class="fa-solid fa-circle-user" style="color: var(--primary-blue); margin-right: 4px;"></i> Demo Customer Login:
+                                    <div style="font-weight: 700; color: #15803d; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
+                                        <i class="fa-solid fa-circle-check"></i> Demo User Login (Customer):
                                     </div>
-                                    <div>
-                                        User ID: <code style="font-weight: 600;">customer@velocity.com</code> &nbsp;|&nbsp; Password: <strong style="color: #0f172a;">123456</strong>
+                                    <div style="font-size: 12px; color: #334155;">
+                                        User ID: <strong style="color: #0f172a; background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">customer@velocity.com</strong>
+                                        &nbsp;&nbsp;
+                                        Password: <strong style="color: #0f172a; background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">123456</strong>
                                     </div>
                                 </div>
-                                <button type="button" onclick="fillDemoCustomer()" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; height: auto;">
-                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Fill
+                                <button type="button" onclick="fillDemoCustomer()" class="btn btn-primary" style="padding: 6px 12px; font-size: 11.5px; height: auto; background: #16a34a; border-color: #16a34a;">
+                                    <i class="fa-solid fa-bolt"></i> Auto-Fill Demo
                                 </button>
                             </div>
                         </div>
@@ -1830,18 +1832,11 @@
                             isAuthRegister = false;
                             document.getElementById("authRegisterFields").style.display = "none";
                             if (toggleBtn) toggleBtn.style.display = "none";
-                            modalTitle.innerHTML = `<i class="fa-solid fa-user-shield" style="color: var(--primary-blue);"></i> Admin Control Sign In`;
+                            modalTitle.innerHTML = `<i class="fa-solid fa-user-shield" style="color: var(--primary-blue);"></i> Admin Sign In`;
+                            // Remove any admin banner completely so it is never shown publicly
                             if (demoHint) {
-                                demoHint.style.display = "block";
-                                demoHint.innerHTML = `<div style="display: flex; align-items: center; gap: 8px;">
-                                    <i class="fa-solid fa-shield-halved" style="color: #2563eb; font-size: 15px;"></i>
-                                    <div>
-                                        <div style="font-weight: 600; color: #1e293b;">Administrator Control Access</div>
-                                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
-                                            Authorized administrators only. Admin password is protected & hidden.
-                                        </div>
-                                    </div>
-                                </div>`;
+                                demoHint.style.display = "none";
+                                demoHint.innerHTML = "";
                             }
                         } else if (role === 'CUSTOMER') {
                             if (toggleBtn) toggleBtn.style.display = "block";
@@ -1853,15 +1848,17 @@
                                 demoHint.style.display = isAuthRegister ? "none" : "block";
                                 demoHint.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                                     <div>
-                                        <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">
-                                            <i class="fa-solid fa-circle-user" style="color: var(--primary-blue); margin-right: 4px;"></i> Demo Customer Login:
+                                        <div style="font-weight: 700; color: #15803d; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
+                                            <i class="fa-solid fa-circle-check"></i> Demo User Login (Customer):
                                         </div>
-                                        <div>
-                                            User ID: <code style="font-weight: 600;">customer@velocity.com</code> &nbsp;|&nbsp; Password: <strong style="color: #0f172a;">123456</strong>
+                                        <div style="font-size: 12px; color: #334155;">
+                                            User ID: <strong style="color: #0f172a; background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">customer@velocity.com</strong>
+                                            &nbsp;&nbsp;
+                                            Password: <strong style="color: #0f172a; background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">123456</strong>
                                         </div>
                                     </div>
-                                    <button type="button" onclick="fillDemoCustomer()" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; height: auto;">
-                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Fill
+                                    <button type="button" onclick="fillDemoCustomer()" class="btn btn-primary" style="padding: 6px 12px; font-size: 11.5px; height: auto; background: #16a34a; border-color: #16a34a;">
+                                        <i class="fa-solid fa-bolt"></i> Auto-Fill Demo
                                     </button>
                                 </div>`;
                             }
@@ -1872,20 +1869,8 @@
                                 `<i class="fa-solid fa-user-lock" style="color: var(--primary-blue);"></i> Vehicle Owner Sign In`;
 
                             if (demoHint) {
-                                demoHint.style.display = isAuthRegister ? "none" : "block";
-                                demoHint.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                                    <div>
-                                        <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">
-                                            <i class="fa-solid fa-car" style="color: var(--primary-blue); margin-right: 4px;"></i> Demo Vehicle Owner Login:
-                                        </div>
-                                        <div>
-                                            User ID: <code style="font-weight: 600;">owner@velocity.com</code> &nbsp;|&nbsp; Password: <strong style="color: #0f172a;">123456</strong>
-                                        </div>
-                                    </div>
-                                    <button type="button" onclick="fillDemoOwner()" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; height: auto;">
-                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Fill
-                                    </button>
-                                </div>`;
+                                demoHint.style.display = "none";
+                                demoHint.innerHTML = "";
                             }
                         }
                         const licenseGroup = document.getElementById("authLicenseGroup");
