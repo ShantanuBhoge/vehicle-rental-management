@@ -1417,11 +1417,15 @@ app.post("/contact", (req, res) => {
 
         // Attempt Real Email Dispatch via Nodemailer
         try {
-            const gmailUser = process.env.GMAIL_USER || process.env.SMTP_USER || targetEmail;
-            const gmailPass = process.env.GMAIL_PASS || process.env.SMTP_PASS || "";
+            const rawUser = process.env.GMAIL_USER || process.env.SMTP_USER || targetEmail;
+            const rawPass = process.env.GMAIL_PASS || process.env.SMTP_PASS || "";
+            const gmailUser = rawUser.trim();
+            const gmailPass = rawPass.replace(/\s+/g, "").trim();
 
             const transporter = nodemailer.createTransport({
-                service: "gmail",
+                host: "smtp.gmail.com",
+                port: 465,
+                secure: true,
                 auth: {
                     user: gmailUser,
                     pass: gmailPass
