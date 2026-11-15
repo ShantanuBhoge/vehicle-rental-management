@@ -1438,8 +1438,11 @@ app.post("/contact", (req, res) => {
             };
 
             if (gmailPass) {
-                await transporter.sendMail(mailOptions);
-                console.log(`[REAL GMAIL DISPATCH SUCCESS] Support email delivered to ${targetEmail}`);
+                transporter.sendMail(mailOptions).then(() => {
+                    console.log(`[REAL GMAIL DISPATCH SUCCESS] Support email delivered to ${targetEmail}`);
+                }).catch(mailErr => {
+                    console.warn("Mail dispatch notice (handled safely):", mailErr.message);
+                });
             } else {
                 console.log(`[CONTACT FORM DISPATCH] Formatted request queued for ${targetEmail}:\n${plainTextContent}`);
             }

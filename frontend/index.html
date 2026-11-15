@@ -2771,10 +2771,6 @@
                             msg.style.color = "#059669";
                             msg.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${data.message}`;
 
-                            // Trigger mailto link so user's local email app pre-populates email to sbwork429@gmail.com
-                            if (data.mailto_url) {
-                                window.location.href = data.mailto_url;
-                            }
                             e.target.reset();
                             setTimeout(() => { msg.style.display = "none"; }, 6000);
                         } catch (err) {
