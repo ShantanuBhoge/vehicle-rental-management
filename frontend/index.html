@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Velocity | Vehicle Rental & Fleet Management</title>
-    <link rel="stylesheet" href="style.css?v=2.2">
+    <link rel="stylesheet" href="style.css?v=2.3">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -500,9 +500,9 @@
                         </div>
                     </div>
 
-                    <div class="card"
-                        style="background: #ffffff; margin-bottom: 0; border: 1px solid var(--border-subtle);">
-                        <h3 style="color: var(--text-bright); margin-bottom: 16px;"><i class="fa-solid fa-paper-plane"
+                    <div class="contact-form-card"
+                        style="background: #ffffff; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-subtle);">
+                        <h3 style="color: var(--text-bright); margin-bottom: 16px; font-size: 18px; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-paper-plane"
                                 style="color: var(--primary-blue);"></i> Send Us a Message</h3>
                         <form id="contactForm" onsubmit="handleContactSubmit(event)">
                             <div class="form-grid">
@@ -514,7 +514,7 @@
                                     <label>Email Address *</label>
                                     <input type="email" id="contactEmail" placeholder="john@example.com" required>
                                 </div>
-                                <div class="form-group" style="grid-column: span 2;">
+                                <div class="form-group grid-full">
                                     <label>Message *</label>
                                     <textarea id="contactMessage" rows="4"
                                         placeholder="How can we assist you with vehicle rental or owner registration?"
