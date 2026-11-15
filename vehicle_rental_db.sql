@@ -84,6 +84,13 @@ CREATE TABLE `customers` (
   UNIQUE KEY `DRIVING_LICENSE_NO` (`DRIVING_LICENSE_NO`)
 ) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `customers`
+--
+INSERT INTO `customers` (`CUSTOMER_ID`, `FIRST_NAME`, `LAST_NAME`, `EMAIL`, `PHONE`, `DRIVING_LICENSE_NO`, `PASSWORD`) VALUES
+(1, 'Demo', 'Customer', 'customer@velocity.com', '9876543210', 123456789012, '123456')
+ON DUPLICATE KEY UPDATE `PASSWORD` = '123456';
+
 -- Table structure for table `invoices`
 DROP TABLE IF EXISTS `invoices`;
 CREATE TABLE `invoices` (
