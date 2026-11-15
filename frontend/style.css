@@ -370,6 +370,9 @@ body {
     margin-bottom: 28px;
     transition: var(--transition);
     box-shadow: var(--card-shadow);
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .card:hover {
@@ -409,6 +412,13 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-grid > * {
+    min-width: 0;
+    max-width: 100%;
 }
 
 .form-group {
@@ -1097,9 +1107,11 @@ body {
         margin-top: 2px;
     }
 
-    .form-grid {
-        grid-template-columns: 1fr;
-        gap: 10px;
+    .form-grid,
+    [style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .form-group {

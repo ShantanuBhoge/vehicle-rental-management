@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Velocity | Vehicle Rental & Fleet Management</title>
-    <link rel="stylesheet" href="style.css?v=2.3">
+    <link rel="stylesheet" href="style.css?v=2.4">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
@@ -505,20 +505,20 @@
                         <h3 style="color: var(--text-bright); margin-bottom: 16px; font-size: 18px; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-paper-plane"
                                 style="color: var(--primary-blue);"></i> Send Us a Message</h3>
                         <form id="contactForm" onsubmit="handleContactSubmit(event)">
-                            <div class="form-grid">
-                                <div class="form-group">
+                            <div style="display: flex; flex-direction: column; gap: 14px; width: 100%; box-sizing: border-box;">
+                                <div class="form-group" style="width: 100%;">
                                     <label>Your Name *</label>
-                                    <input type="text" id="contactName" placeholder="John Doe" required>
+                                    <input type="text" id="contactName" placeholder="John Doe" required style="width: 100%; box-sizing: border-box;">
                                 </div>
-                                <div class="form-group">
+                                <div class="form-group" style="width: 100%;">
                                     <label>Email Address *</label>
-                                    <input type="email" id="contactEmail" placeholder="john@example.com" required>
+                                    <input type="email" id="contactEmail" placeholder="john@example.com" required style="width: 100%; box-sizing: border-box;">
                                 </div>
-                                <div class="form-group grid-full">
+                                <div class="form-group" style="width: 100%;">
                                     <label>Message *</label>
                                     <textarea id="contactMessage" rows="4"
                                         placeholder="How can we assist you with vehicle rental or owner registration?"
-                                        required></textarea>
+                                        required style="width: 100%; max-width: 100%; box-sizing: border-box; resize: vertical; min-height: 100px;"></textarea>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-primary" style="margin-top: 16px;"><i
