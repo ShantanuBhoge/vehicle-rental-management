@@ -769,11 +769,20 @@
                         </div>
 
                         <div id="authDemoHint"
-                            style="font-size: 11px; color: var(--text-muted); margin-top: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 6px; border-left: 3px solid var(--primary-blue);">
-                            <i class="fa-solid fa-circle-info"
-                                style="color: var(--primary-blue); margin-right: 4px;"></i>
-                            Default password for existing database accounts (e.g. <code>SHANTANU@GMAIL.COM</code>):
-                            <strong>123456</strong>
+                            style="font-size: 11.5px; color: var(--text-muted); margin-top: 10px; padding: 10px 14px; background: #f8fafc; border-radius: 8px; border-left: 4px solid var(--primary-blue);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                                <div>
+                                    <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">
+                                        <i class="fa-solid fa-circle-user" style="color: var(--primary-blue); margin-right: 4px;"></i> Demo Customer Login:
+                                    </div>
+                                    <div>
+                                        User ID: <code style="font-weight: 600;">customer@velocity.com</code> &nbsp;|&nbsp; Password: <strong style="color: #0f172a;">123456</strong>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="fillDemoCustomer()" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; height: auto;">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Fill
+                                </button>
+                            </div>
                         </div>
 
                         <div
@@ -1824,17 +1833,59 @@
                             modalTitle.innerHTML = `<i class="fa-solid fa-user-shield" style="color: var(--primary-blue);"></i> Admin Control Sign In`;
                             if (demoHint) {
                                 demoHint.style.display = "block";
-                                demoHint.innerHTML = `<i class="fa-solid fa-circle-info" style="color: var(--primary-blue); margin-right: 4px;"></i> Super Admin Login Credentials: <code>admin@velocity.com</code> / Password: <strong>admin123</strong>`;
+                                demoHint.innerHTML = `<div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-shield-halved" style="color: #2563eb; font-size: 15px;"></i>
+                                    <div>
+                                        <div style="font-weight: 600; color: #1e293b;">Administrator Control Access</div>
+                                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                                            Authorized administrators only. Admin password is protected & hidden.
+                                        </div>
+                                    </div>
+                                </div>`;
+                            }
+                        } else if (role === 'CUSTOMER') {
+                            if (toggleBtn) toggleBtn.style.display = "block";
+                            modalTitle.innerHTML = isAuthRegister ?
+                                `<i class="fa-solid fa-user-plus" style="color: var(--primary-blue);"></i> Register as Customer` :
+                                `<i class="fa-solid fa-user-lock" style="color: var(--primary-blue);"></i> Customer Sign In`;
+
+                            if (demoHint) {
+                                demoHint.style.display = isAuthRegister ? "none" : "block";
+                                demoHint.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                                    <div>
+                                        <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">
+                                            <i class="fa-solid fa-circle-user" style="color: var(--primary-blue); margin-right: 4px;"></i> Demo Customer Login:
+                                        </div>
+                                        <div>
+                                            User ID: <code style="font-weight: 600;">customer@velocity.com</code> &nbsp;|&nbsp; Password: <strong style="color: #0f172a;">123456</strong>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="fillDemoCustomer()" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; height: auto;">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Fill
+                                    </button>
+                                </div>`;
                             }
                         } else {
                             if (toggleBtn) toggleBtn.style.display = "block";
                             modalTitle.innerHTML = isAuthRegister ?
-                                `<i class="fa-solid fa-user-plus" style="color: var(--primary-blue);"></i> Register as ${role}` :
-                                `<i class="fa-solid fa-user-lock" style="color: var(--primary-blue);"></i> ${role} Sign In`;
+                                `<i class="fa-solid fa-user-plus" style="color: var(--primary-blue);"></i> Register as Vehicle Owner` :
+                                `<i class="fa-solid fa-user-lock" style="color: var(--primary-blue);"></i> Vehicle Owner Sign In`;
 
                             if (demoHint) {
-                                demoHint.style.display = "block";
-                                demoHint.innerHTML = `<i class="fa-solid fa-circle-info" style="color: var(--primary-blue); margin-right: 4px;"></i> Default password for existing database accounts: <strong>123456</strong>`;
+                                demoHint.style.display = isAuthRegister ? "none" : "block";
+                                demoHint.innerHTML = `<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                                    <div>
+                                        <div style="font-weight: 600; color: #1e293b; margin-bottom: 2px;">
+                                            <i class="fa-solid fa-car" style="color: var(--primary-blue); margin-right: 4px;"></i> Demo Vehicle Owner Login:
+                                        </div>
+                                        <div>
+                                            User ID: <code style="font-weight: 600;">owner@velocity.com</code> &nbsp;|&nbsp; Password: <strong style="color: #0f172a;">123456</strong>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="fillDemoOwner()" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; height: auto;">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Fill
+                                    </button>
+                                </div>`;
                             }
                         }
                         const licenseGroup = document.getElementById("authLicenseGroup");
@@ -1869,6 +1920,36 @@
                         } else {
                             passInput.type = "password";
                             eyeIcon.className = "fa-solid fa-eye";
+                        }
+                    }
+
+                    function fillDemoCustomer() {
+                        if (isAuthRegister) toggleAuthMode(new Event('click'));
+                        if (activeAuthRole !== 'CUSTOMER') switchAuthTab('CUSTOMER');
+                        const emailInput = document.getElementById("authEmail");
+                        const passInput = document.getElementById("authPassword");
+                        if (emailInput) emailInput.value = "customer@velocity.com";
+                        if (passInput) passInput.value = "123456";
+                        const msg = document.getElementById("authMsg");
+                        if (msg) {
+                            msg.style.display = "block";
+                            msg.style.color = "#16a34a";
+                            msg.innerText = "✓ Demo Customer credentials loaded! Click 'Sign In' to continue.";
+                        }
+                    }
+
+                    function fillDemoOwner() {
+                        if (isAuthRegister) toggleAuthMode(new Event('click'));
+                        if (activeAuthRole !== 'OWNER') switchAuthTab('OWNER');
+                        const emailInput = document.getElementById("authEmail");
+                        const passInput = document.getElementById("authPassword");
+                        if (emailInput) emailInput.value = "owner@velocity.com";
+                        if (passInput) passInput.value = "123456";
+                        const msg = document.getElementById("authMsg");
+                        if (msg) {
+                            msg.style.display = "block";
+                            msg.style.color = "#16a34a";
+                            msg.innerText = "✓ Demo Owner credentials loaded! Click 'Sign In' to continue.";
                         }
                     }
 
