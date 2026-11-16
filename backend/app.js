@@ -588,6 +588,58 @@ app.post("/branches", (req, res) => {
     );
 });
 
+// Edit Branch (Owner Protected)
+app.put("/branches/:id", (req, res) => {
+    const branchId = req.params.id;
+    const { branch_name, city, location_area, phone, owner_id } = req.body;
+
+    if (!owner_id) {
+        return res.status(401).json({ message: "Owner authentication is required to edit branch" });
+    }
+
+    // 1. Verify branch exists
+    db.query("SELECT * FROM branches WHERE BRANCH_ID = ?", [branchId], (err, rows) => {
+        if (err) return res.status(500).json({ message: "Database error", error: err.message });
+        if (!rows || rows.length === 0) return res.status(404).json({ message: "Branch not found" });
+
+        const branch = rows[0];
+
+        // 2. Authorization check: only the respective branch owner who created the branch can edit it
+        if (branch.CREATED_BY_OWNER_ID != owner_id) {
+            return res.status(403).json({ message: "Unauthorized: You can only edit branches created under your owner account." });
+        }
+
+        // 3. Update branch details
+        const sql = `
+            UPDATE branches
+            SET
+                LOCATION_AREA = COALESCE(?, LOCATION_AREA),
+                PHONE = COALESCE(?, PHONE),
+                BRANCH_NAME = COALESCE(?, BRANCH_NAME),
+                CITY = COALESCE(?, CITY)
+            WHERE BRANCH_ID = ? AND CREATED_BY_OWNER_ID = ?
+        `;
+
+        db.query(
+            sql,
+            [
+                location_area !== undefined ? location_area.trim() : null,
+                phone !== undefined ? phone.trim() : null,
+                branch_name !== undefined ? branch_name.trim() : null,
+                city !== undefined ? city.trim() : null,
+                branchId,
+                owner_id
+            ],
+            (updateErr) => {
+                if (updateErr) {
+                    return res.status(500).json({ message: "Failed to update branch", error: updateErr.message });
+                }
+                res.json({ message: "Branch updated successfully" });
+            }
+        );
+    });
+});
+
 app.get("/owners", (req, res) => {
     db.query("SELECT OWNER_ID, CONCAT(FIRST_NAME, ' ', LAST_NAME) AS OWNER_NAME FROM owners ORDER BY OWNER_ID DESC", (err, result) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -1406,6 +1458,256 @@ app.post("/maintenance", (req, res) => {
 // =====================================================
 // CONTACT & SUPPORT MODULE (HTML EMAIL DISPATCH TO GMAIL)
 // =====================================================
+
+// Helper to mask email in production logs safely
+function maskEmail(email) {
+    if (!email || typeof email !== "string") return "unknown";
+    const parts = email.split("@");
+    if (parts.length !== 2) return "***";
+    const name = parts[0];
+    const maskedName = name.length <= 2 ? name[0] + "***" : name[0] + "***" + name[name.length - 1];
+    return `${maskedName}@${parts[1]}`;
+}
+
+// Build primary SMTP configuration respecting env overrides
+function getPrimaryTransportConfig(user, pass) {
+    const host = process.env.SMTP_HOST || "smtp.gmail.com";
+    const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 465;
+    const secure = process.env.SMTP_SECURE !== undefined
+        ? process.env.SMTP_SECURE === "true"
+        : port === 465;
+
+    const config = {
+        host,
+        port,
+        secure,
+        family: 4, // Force IPv4 to prevent cloud container DNS timeouts
+        auth: { user, pass },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000
+    };
+
+    if (process.env.SMTP_SERVICE) {
+        config.service = process.env.SMTP_SERVICE;
+    }
+
+    return config;
+}
+
+// Build fallback SMTP configuration (switches 465 SSL <-> 587 STARTTLS)
+function getFallbackTransportConfig(user, pass) {
+    const primaryPort = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 465;
+    const fallbackPort = primaryPort === 465 ? 587 : 465;
+    const fallbackSecure = fallbackPort === 465;
+
+    return {
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: fallbackPort,
+        secure: fallbackSecure,
+        requireTLS: !fallbackSecure,
+        family: 4, // Force IPv4
+        auth: { user, pass },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000
+    };
+}
+
+// Native HTTPS Dispatcher for Resend (Port 443 - Never blocked on Render)
+function sendViaResend({ apiKey, fromName, fromEmail, targetEmail, subject, text, html }) {
+    return new Promise((resolve, reject) => {
+        const https = require("https");
+        const sender = process.env.RESEND_FROM || `${fromName} <onboarding@resend.dev>`;
+        const payload = JSON.stringify({
+            from: sender,
+            to: [targetEmail],
+            reply_to: fromEmail,
+            subject: subject,
+            text: text,
+            html: html
+        });
+
+        const req = https.request({
+            hostname: "api.resend.com",
+            port: 443,
+            path: "/emails",
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(payload)
+            },
+            timeout: 10000
+        }, (res) => {
+            let resData = "";
+            res.on("data", chunk => { resData += chunk; });
+            res.on("end", () => {
+                try {
+                    const parsed = JSON.parse(resData);
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve({ success: true, messageId: parsed.id, transport: "HTTPS Resend API (Port 443)" });
+                    } else {
+                        reject(new Error(parsed.message || `Resend API returned HTTP ${res.statusCode}`));
+                    }
+                } catch (e) {
+                    reject(new Error(`Failed to parse Resend API response: ${resData}`));
+                }
+            });
+        });
+
+        req.on("error", reject);
+        req.on("timeout", () => {
+            req.destroy();
+            reject(new Error("Resend HTTPS API request timed out"));
+        });
+        req.write(payload);
+        req.end();
+    });
+}
+
+// Native HTTPS Dispatcher for Brevo (Port 443 - Never blocked on Render)
+function sendViaBrevo({ apiKey, fromName, fromEmail, targetEmail, subject, text, html }) {
+    return new Promise((resolve, reject) => {
+        const https = require("https");
+        const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.GMAIL_USER || targetEmail;
+        const payload = JSON.stringify({
+            sender: { name: fromName, email: senderEmail },
+            to: [{ email: targetEmail }],
+            replyTo: { email: fromEmail, name: fromName },
+            subject: subject,
+            textContent: text,
+            htmlContent: html
+        });
+
+        const req = https.request({
+            hostname: "api.brevo.com",
+            port: 443,
+            path: "/v3/smtp/email",
+            method: "POST",
+            headers: {
+                "api-key": apiKey,
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(payload)
+            },
+            timeout: 10000
+        }, (res) => {
+            let resData = "";
+            res.on("data", chunk => { resData += chunk; });
+            res.on("end", () => {
+                try {
+                    const parsed = JSON.parse(resData);
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve({ success: true, messageId: parsed.messageId, transport: "HTTPS Brevo API (Port 443)" });
+                    } else {
+                        reject(new Error(parsed.message || `Brevo API returned HTTP ${res.statusCode}`));
+                    }
+                } catch (e) {
+                    reject(new Error(`Failed to parse Brevo API response: ${resData}`));
+                }
+            });
+        });
+
+        req.on("error", reject);
+        req.on("timeout", () => {
+            req.destroy();
+            reject(new Error("Brevo HTTPS API request timed out"));
+        });
+        req.write(payload);
+        req.end();
+    });
+}
+
+// Resilient Email Dispatcher with Automatic Fallback & Production Diagnostics
+async function dispatchContactEmail({ fromName, fromEmail, targetEmail, subject, text, html }) {
+    // 1. Check if an HTTPS-based transactional email provider is configured (Port 443 - Never blocked on Render)
+    if (process.env.RESEND_API_KEY) {
+        console.log(`[EMAIL DISPATCH] Using HTTPS Resend API over port 443 to ${targetEmail}...`);
+        return await sendViaResend({
+            apiKey: process.env.RESEND_API_KEY.trim(),
+            fromName,
+            fromEmail,
+            targetEmail,
+            subject,
+            text,
+            html
+        });
+    }
+
+    if (process.env.BREVO_API_KEY) {
+        console.log(`[EMAIL DISPATCH] Using HTTPS Brevo API over port 443 to ${targetEmail}...`);
+        return await sendViaBrevo({
+            apiKey: process.env.BREVO_API_KEY.trim(),
+            fromName,
+            fromEmail,
+            targetEmail,
+            subject,
+            text,
+            html
+        });
+    }
+
+    // 2. SMTP dispatch with strict TLS verification and dual-port fallback (465 SSL <-> 587 STARTTLS)
+    const rawUser = process.env.GMAIL_USER || process.env.SMTP_USER || targetEmail;
+    const rawPass = process.env.GMAIL_PASS || process.env.SMTP_PASS || "";
+    const user = rawUser.trim();
+    const pass = rawPass.replace(/\s+/g, "").trim();
+
+    if (!user || !pass) {
+        console.warn(`[CONTACT EMAIL NOTICE] Missing SMTP credentials (user: ${!!user}, pass: ${!!pass}). Message logged locally.`);
+        return { success: false, reason: "NO_CREDENTIALS" };
+    }
+
+    const mailOptions = {
+        from: `"${fromName} via Velocity Rentals" <${user}>`,
+        to: targetEmail,
+        replyTo: cleanEmail(fromEmail),
+        subject,
+        text,
+        html
+    };
+
+    const primaryConfig = getPrimaryTransportConfig(user, pass);
+    console.log(`[EMAIL DISPATCH] Attempting primary SMTP transport (${primaryConfig.host}:${primaryConfig.port}, secure: ${primaryConfig.secure}, user: ${maskEmail(user)})...`);
+
+    try {
+        const primaryTransporter = nodemailer.createTransport(primaryConfig);
+        const info = await primaryTransporter.sendMail(mailOptions);
+        console.log(`[EMAIL DISPATCH SUCCESS] Primary transport delivered to ${targetEmail} (ID: ${info.messageId})`);
+        return { success: true, transport: `SMTP ${primaryConfig.host}:${primaryConfig.port}`, messageId: info.messageId };
+    } catch (primaryErr) {
+        console.warn(`[EMAIL DISPATCH WARNING] Primary transport (${primaryConfig.host}:${primaryConfig.port}) failed: [${primaryErr.code || 'ERR'}] ${primaryErr.message}`);
+
+        // Try Fallback Transport (port 587 STARTTLS)
+        const fallbackConfig = getFallbackTransportConfig(user, pass);
+        console.log(`[EMAIL DISPATCH] Attempting fallback SMTP transport (${fallbackConfig.host}:${fallbackConfig.port}, secure: ${fallbackConfig.secure})...`);
+
+        try {
+            const fallbackTransporter = nodemailer.createTransport(fallbackConfig);
+            const fallbackInfo = await fallbackTransporter.sendMail(mailOptions);
+            console.log(`[EMAIL DISPATCH SUCCESS] Fallback transport delivered to ${targetEmail} (ID: ${fallbackInfo.messageId})`);
+            return { success: true, transport: `SMTP Fallback ${fallbackConfig.host}:${fallbackConfig.port}`, messageId: fallbackInfo.messageId };
+        } catch (fallbackErr) {
+            console.error(`[EMAIL DISPATCH ERROR] Both primary and fallback SMTP transports failed.`);
+            console.error(`  - Primary (${primaryConfig.port}): [${primaryErr.code || 'ERR'}] ${primaryErr.message}`);
+            console.error(`  - Fallback (${fallbackConfig.port}): [${fallbackErr.code || 'ERR'}] ${fallbackErr.message}`);
+
+            if (primaryErr.code === 'ETIMEDOUT' || fallbackErr.code === 'ETIMEDOUT' || primaryErr.code === 'ESOCKETTIMEDOUT') {
+                console.error(`[RENDER PLATFORM NOTICE] Outbound SMTP connection timed out on ports ${primaryConfig.port} and ${fallbackConfig.port}.`);
+                console.error(`  Render Free Web Services block outbound traffic on SMTP ports 25, 465, and 587.`);
+                console.error(`  To resolve on Render Free Tier: Set RESEND_API_KEY (or BREVO_API_KEY) in Render Environment variables to dispatch over HTTPS (Port 443).`);
+                console.error(`  To resolve with SMTP: Upgrade Render web service to a paid compute plan to unblock outbound SMTP ports.`);
+            }
+
+            throw new Error(`Email dispatch failed: ${primaryErr.message}`);
+        }
+    }
+}
+
+function cleanEmail(e) {
+    return String(e || "").trim();
+}
+
 app.post("/contact", async (req, res) => {
     const { name, email, message } = req.body;
 
@@ -1414,7 +1716,7 @@ app.post("/contact", async (req, res) => {
     }
 
     const cleanName = String(name).trim();
-    const cleanEmail = String(email).trim();
+    const cleanSenderEmail = String(email).trim();
     const cleanMessage = String(message).trim();
 
     const targetEmail = process.env.TARGET_EMAIL || process.env.CONTACT_EMAIL || process.env.GMAIL_USER || "sbwork429@gmail.com";
@@ -1428,7 +1730,7 @@ app.post("/contact", async (req, res) => {
             VALUES (?, ?, ?, ?, 'PENDING')
         `;
         const [result] = await new Promise((resolve) => {
-            db.query(insertSql, [cleanName, cleanEmail, cleanMessage, targetEmail], (err, r) => {
+            db.query(insertSql, [cleanName, cleanSenderEmail, cleanMessage, targetEmail], (err, r) => {
                 if (err) {
                     console.warn("Notice: Failed to log contact request in DB:", err.message);
                     resolve([null, err]);
@@ -1456,7 +1758,7 @@ app.post("/contact", async (req, res) => {
                     <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Sender Details</div>
                     <div style="font-size: 16px; font-weight: 700; color: #0f172a;">${cleanName}</div>
                     <div style="font-size: 14px; color: #2563eb; margin-top: 2px;">
-                        📧 <a href="mailto:${cleanEmail}" style="color: #2563eb; text-decoration: none; font-weight: 600;">${cleanEmail}</a>
+                        📧 <a href="mailto:${cleanSenderEmail}" style="color: #2563eb; text-decoration: none; font-weight: 600;">${cleanSenderEmail}</a>
                     </div>
                 </div>
                 
@@ -1473,68 +1775,48 @@ app.post("/contact", async (req, res) => {
         </div>
     `;
 
-    const plainTextContent = `Velocity Rentals Support Request\n\nFrom: ${cleanName} (${cleanEmail})\nDate: ${formattedDate}\n\nMessage:\n${cleanMessage}`;
-
-    // 3. Dispatch Email via Nodemailer (Background Delivery - Instant Response)
-    const rawUser = process.env.GMAIL_USER || process.env.SMTP_USER || targetEmail;
-    const rawPass = process.env.GMAIL_PASS || process.env.SMTP_PASS || "";
-    const gmailUser = rawUser.trim();
-    const gmailPass = rawPass.replace(/\s+/g, "").trim();
+    const plainTextContent = `Velocity Rentals Support Request\n\nFrom: ${cleanName} (${cleanSenderEmail})\nDate: ${formattedDate}\n\nMessage:\n${cleanMessage}`;
 
     const encodedSubject = encodeURIComponent(`Contact Support Request from ${cleanName}`);
-    const encodedBody = encodeURIComponent(`From: ${cleanName} (${cleanEmail})\n\nMessage:\n${cleanMessage}`);
+    const encodedBody = encodeURIComponent(`From: ${cleanName} (${cleanSenderEmail})\n\nMessage:\n${cleanMessage}`);
     const mailtoUrl = `mailto:${targetEmail}?subject=${encodedSubject}&body=${encodedBody}`;
 
-    if (gmailUser && gmailPass) {
-        try {
-            const transporter = nodemailer.createTransport({
-                host: "smtp.gmail.com",
-                port: 465,
-                secure: true,
-                auth: {
-                    user: gmailUser,
-                    pass: gmailPass
-                },
-                connectionTimeout: 10000,
-                greetingTimeout: 10000,
-                socketTimeout: 15000
-            });
+    // 3. Dispatch Email with Fallback & Detailed Logging
+    try {
+        const dispatchResult = await dispatchContactEmail({
+            fromName: cleanName,
+            fromEmail: cleanSenderEmail,
+            targetEmail,
+            subject: `Velocity Rentals Support Request from ${cleanName}`,
+            text: plainTextContent,
+            html: htmlContent
+        });
 
-            const mailOptions = {
-                from: `"${cleanName} via Velocity Rentals" <${gmailUser}>`,
-                to: targetEmail,
-                replyTo: cleanEmail,
-                subject: `Velocity Rentals Support Request from ${cleanName}`,
-                text: plainTextContent,
-                html: htmlContent
-            };
-
-            // Non-blocking asynchronous dispatch so the frontend never hangs or times out
-            transporter.sendMail(mailOptions).then(info => {
-                console.log(`[REAL GMAIL DISPATCH SUCCESS] Delivered to ${targetEmail} (ID: ${info.messageId})`);
-                if (insertId) {
-                    db.query("UPDATE contact_requests SET STATUS = 'SENT' WHERE REQUEST_ID = ?", [insertId], () => {});
-                }
-            }).catch(mailErr => {
-                console.error("[GMAIL DISPATCH ERROR]:", mailErr.message);
-                if (insertId) {
-                    db.query("UPDATE contact_requests SET STATUS = 'FAILED' WHERE REQUEST_ID = ?", [insertId], () => {});
-                }
-            });
-        } catch (mailErr) {
-            console.error("[GMAIL SETUP ERROR]:", mailErr.message);
+        if (insertId) {
+            db.query("UPDATE contact_requests SET STATUS = 'SENT' WHERE REQUEST_ID = ?", [insertId], () => {});
         }
-    } else {
-        console.warn(`[CONTACT FORM DISPATCH] Formatted request logged for ${targetEmail} (No SMTP credentials configured):\n${plainTextContent}`);
-    }
 
-    // 4. Return instant response (< 50ms) so frontend never triggers AbortController
-    return res.status(200).json({
-        success: true,
-        message: `Thank you, ${cleanName}! Your message has been sent to our support team at ${targetEmail}.`,
-        target_email: targetEmail,
-        mailto_url: mailtoUrl
-    });
+        return res.status(200).json({
+            success: true,
+            message: `Thank you, ${cleanName}! Your message has been sent to our support team at ${targetEmail}.`,
+            target_email: targetEmail,
+            mailto_url: mailtoUrl,
+            transport: dispatchResult.transport
+        });
+    } catch (dispatchErr) {
+        console.error(`[CONTACT DISPATCH FAILED]:`, dispatchErr.message);
+        if (insertId) {
+            db.query("UPDATE contact_requests SET STATUS = 'FAILED' WHERE REQUEST_ID = ?", [insertId], () => {});
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: `Thank you, ${cleanName}! Your message was received and logged. (Delivery notice: Direct email notification could not be dispatched: ${dispatchErr.message})`,
+            target_email: targetEmail,
+            mailto_url: mailtoUrl,
+            error: dispatchErr.message
+        });
+    }
 });
 
 app.get("/contact/requests", (req, res) => {

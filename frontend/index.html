@@ -983,7 +983,55 @@
                         <div id="branchMsg" style="margin-top: 12px; display: none; font-weight: 600;"></div>
                     </form>
                 </div>
-                <!-- ================================serv=======================
+            </div>
+        </div>
+
+        <!-- =======================================================
+         EDIT BRANCH MODAL (OWNER ROLE)
+         ======================================================= -->
+        <div id="editBranchModal" class="modal-backdrop">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-pen-to-square" style="color: var(--primary-blue);"></i> Edit Operating Branch</h3>
+                    <button class="modal-close" onclick="closeEditBranchModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="editBranchForm" onsubmit="handleEditBranchSubmit(event)">
+                        <input type="hidden" id="editBranchIdInput">
+
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label>Branch Name *</label>
+                            <input type="text" id="editBranchNameInput" placeholder="e.g. Velocity Kothrud Hub" required>
+                        </div>
+
+                        <div class="form-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 12px;">
+                            <div class="form-group">
+                                <label>City *</label>
+                                <input type="text" id="editBranchCityInput" placeholder="e.g. Pune" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Phone / Contact Number *</label>
+                                <input type="text" id="editBranchPhoneInput" placeholder="e.g. +91 9876543210" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label>Location Area / Address *</label>
+                            <input type="text" id="editBranchAreaInput"
+                                placeholder="e.g. Paud Road, Kothrud (Near Metro Station)" required>
+                            <small style="color: var(--text-muted); font-size: 11px;">Updated address and contact details will be displayed to customers and reflected across operating hubs.</small>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" style="width: 100%;"><i
+                                class="fa-solid fa-check"></i>
+                            Save Branch Changes</button>
+                        <div id="editBranchMsg" style="margin-top: 12px; display: none; font-weight: 600;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- =======================================================
          DOWNLOADABLE RECEIPT MODAL
          ======================================================= -->
                 <div id="receiptModal" class="modal-backdrop">
@@ -1421,6 +1469,8 @@
                         }
                     }
 
+                    let currentOwnerBranches = [];
+
                     // FETCH OWNER OPERATING BRANCHES
                     async function loadOwnerBranches() {
                         if (!currentUser || currentUser.role !== "OWNER") return;
@@ -1430,6 +1480,7 @@
                             const res = await apiFetch(`${API_URL}/owners/${currentUser.id}/branches`);
                             if (!res.ok) throw new Error("Failed to load owner branches");
                             const branches = await res.json();
+                            currentOwnerBranches = branches || [];
 
                             if (branches.length === 0) {
                                 grid.innerHTML = `<div style="color: var(--text-muted); grid-column: 1/-1; padding: 10px;">No operating branches found yet. Click <strong>+ Add New Branch</strong> to create your first branch.</div>`;
@@ -1456,8 +1507,15 @@
                         <div style="font-size: 13px; color: var(--text-main); margin-bottom: 4px;">📍 <strong>${b.CITY}</strong> ${b.LOCATION_AREA ? ' - ' + b.LOCATION_AREA : ''}</div>
                         ${b.PHONE ? `<div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;"><i class="fa-solid fa-phone"></i> ${b.PHONE}</div>` : ''}
                         <div style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border-subtle); display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
-                            <span style="color: var(--text-muted);">Vehicles Owned Here:</span>
-                            <span style="font-weight: 800; color: var(--primary-blue); font-size: 14px;">${b.VEHICLE_COUNT || 0}</span>
+                            <div>
+                                <span style="color: var(--text-muted);">Vehicles Owned: </span>
+                                <span style="font-weight: 800; color: var(--primary-blue); font-size: 14px;">${b.VEHICLE_COUNT || 0}</span>
+                            </div>
+                            ${isCreatedByMe ? `
+                                <button type="button" class="btn btn-secondary" onclick="openEditBranchModal(${b.BRANCH_ID})" style="padding: 4px 10px; font-size: 12px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;" title="Edit this branch">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                                </button>
+                            ` : ''}
                         </div>
                     `;
                                 grid.appendChild(card);
@@ -1474,6 +1532,84 @@
 
                     function closeBranchModal() {
                         document.getElementById("branchModal").classList.remove("active");
+                    }
+
+                    // EDIT BRANCH MODAL LOGIC
+                    function openEditBranchModal(branchId) {
+                        if (!currentUser || currentUser.role !== "OWNER") {
+                            alert("Please sign in as a Vehicle Owner to edit branch details.");
+                            return;
+                        }
+                        const branch = currentOwnerBranches.find(b => b.BRANCH_ID === branchId);
+                        if (!branch) return;
+
+                        if (branch.CREATED_BY_OWNER_ID != currentUser.id) {
+                            alert("Unauthorized: You can only edit branches created under your owner account.");
+                            return;
+                        }
+
+                        document.getElementById("editBranchIdInput").value = branch.BRANCH_ID;
+                        document.getElementById("editBranchNameInput").value = branch.BRANCH_NAME || "";
+                        document.getElementById("editBranchCityInput").value = branch.CITY || "";
+                        document.getElementById("editBranchAreaInput").value = branch.LOCATION_AREA || "";
+                        document.getElementById("editBranchPhoneInput").value = branch.PHONE || "";
+
+                        const msg = document.getElementById("editBranchMsg");
+                        if (msg) msg.style.display = "none";
+
+                        document.getElementById("editBranchModal").classList.add("active");
+                    }
+
+                    function closeEditBranchModal() {
+                        const modal = document.getElementById("editBranchModal");
+                        if (modal) modal.classList.remove("active");
+                    }
+
+                    async function handleEditBranchSubmit(e) {
+                        e.preventDefault();
+                        const msg = document.getElementById("editBranchMsg");
+                        msg.style.display = "none";
+
+                        const branchId = document.getElementById("editBranchIdInput").value;
+                        if (!branchId || !currentUser || currentUser.role !== "OWNER") {
+                            msg.style.display = "block";
+                            msg.style.color = "#dc2626";
+                            msg.innerText = "Owner authorization error. Please sign in again.";
+                            return;
+                        }
+
+                        const payload = {
+                            branch_name: document.getElementById("editBranchNameInput").value.trim(),
+                            city: document.getElementById("editBranchCityInput").value.trim(),
+                            location_area: document.getElementById("editBranchAreaInput").value.trim(),
+                            phone: document.getElementById("editBranchPhoneInput").value.trim(),
+                            owner_id: currentUser.id
+                        };
+
+                        try {
+                            const res = await apiFetch(`${API_URL}/branches/${branchId}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload)
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.message || "Failed to update branch");
+
+                            msg.style.display = "block";
+                            msg.style.color = "#059669";
+                            msg.innerText = "Branch updated successfully!";
+
+                            setTimeout(async () => {
+                                closeEditBranchModal();
+                                await loadOwnerBranches();
+                                await loadDropdownData();
+                                loadVehicles();
+                            }, 1000);
+                        } catch (err) {
+                            msg.style.display = "block";
+                            msg.style.color = "#dc2626";
+                            msg.innerText = err.message;
+                        }
                     }
 
                     async function handleBranchSubmit(e) {
@@ -1502,7 +1638,7 @@
 
                             msg.style.display = "block";
                             msg.style.color = "#059669";
-                            msg.innerText = `Branch "${data.branch.branch_name}" added successfully!`;
+                            msg.innerText = "Branch created successfully!";
                             document.getElementById("branchForm").reset();
 
                             setTimeout(async () => {
@@ -1796,7 +1932,7 @@
 
                             msg.style.display = "block";
                             msg.style.color = "#059669";
-                            msg.innerText = `Vehicle created successfully under owner account (#${result.vehicle_id})!`;
+                            msg.innerText = "Vehicle created successfully!";
                             document.getElementById("addVehicleForm").reset();
                             updateRoleUI();
 
@@ -1827,7 +1963,7 @@
 
                     // DELETE VEHICLE
                     async function deleteVehicle(id) {
-                        if (!confirm(`Are you sure you want to delete Vehicle ID #${id}?`)) return;
+                        if (!confirm("Are you sure you want to delete this vehicle?")) return;
                         try {
                             await apiFetch(`${API_URL}/vehicles/${id}`, { method: "DELETE" });
                             loadVehicles();
@@ -2294,7 +2430,7 @@
                     }
 
                     async function deleteCustomerAcc(id) {
-                        if (!confirm(`Delete Customer Account #${id}?`)) return;
+                        if (!confirm("Are you sure you want to delete this customer account?")) return;
                         try {
                             await apiFetch(`${API_URL}/customers/${id}`, { method: "DELETE" });
                             loadAdminPanel();
@@ -2302,7 +2438,7 @@
                     }
 
                     async function deleteOwnerAcc(id) {
-                        if (!confirm(`Delete Vehicle Owner Account #${id}?`)) return;
+                        if (!confirm("Are you sure you want to delete this vehicle owner account?")) return;
                         try {
                             await apiFetch(`${API_URL}/owners/${id}`, { method: "DELETE" });
                             loadAdminPanel();
@@ -2399,7 +2535,7 @@
 
                             msg.style.display = "block";
                             msg.style.color = "#059669";
-                            msg.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${data.message || "Payment Successful!"} Booking ID #${data.booking_id}. Opening receipt...`;
+                            msg.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${data.message || "Booking and payment completed successfully!"} Opening receipt...`;
 
                             setTimeout(async () => {
                                 closePaymentModal();
