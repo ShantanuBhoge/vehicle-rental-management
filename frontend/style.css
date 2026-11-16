@@ -180,6 +180,17 @@ body {
     box-shadow: var(--blue-glow-subtle);
 }
 
+/* Strict Role-Based Visibility Guards (All Screen Sizes) */
+.role-hidden,
+.role-owner-only.role-hidden,
+.role-admin-only.role-hidden,
+.role-customer-only.role-hidden,
+.nav-item.role-hidden,
+.nav-item[style*="display: none"],
+.nav-item[style*="display:none"] {
+    display: none !important;
+}
+
 .user-profile-controls {
     display: flex;
     align-items: center;
@@ -1001,7 +1012,6 @@ body {
         font-size: 12.5px !important;
         padding: 7px 13px !important;
         border-radius: 8px !important;
-        display: inline-flex !important;
         align-items: center !important;
         gap: 6px !important;
     }

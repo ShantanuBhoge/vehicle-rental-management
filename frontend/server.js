@@ -20,7 +20,7 @@ http.createServer((req, res) => {
     let reqPath = reqUrl.split('?')[0];
 
     // Proxy backend API and receipt routes to backend server on port 5000
-    if (reqPath.startsWith('/bookings') || reqPath.startsWith('/api') || reqPath.startsWith('/vehicles') || reqPath.startsWith('/customers') || reqPath.startsWith('/owners') || reqPath.startsWith('/categories') || reqPath.startsWith('/branches') || reqPath.startsWith('/maintenance') || reqPath.startsWith('/admins')) {
+    if (reqPath.startsWith('/bookings') || reqPath.startsWith('/api') || reqPath.startsWith('/vehicles') || reqPath.startsWith('/customers') || reqPath.startsWith('/owners') || reqPath.startsWith('/categories') || reqPath.startsWith('/branches') || reqPath.startsWith('/maintenance') || reqPath.startsWith('/admins') || reqPath.startsWith('/contact')) {
         const proxyReq = http.request({
             hostname: '127.0.0.1',
             port: BACKEND_PORT,

@@ -1,7 +1,8 @@
-require("dotenv").config({ path: __dirname + "/.env" });
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+require("dotenv").config({ path: path.join(__dirname, "..", ".env") });
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
 const db = require("./db");
 const nodemailer = require("nodemailer");
 const PDFDocument = require("pdfkit");
@@ -1405,64 +1406,86 @@ app.post("/maintenance", (req, res) => {
 // =====================================================
 // CONTACT & SUPPORT MODULE (HTML EMAIL DISPATCH TO GMAIL)
 // =====================================================
-app.post("/contact", (req, res) => {
+app.post("/contact", async (req, res) => {
     const { name, email, message } = req.body;
 
     if (!name || !email || !message) {
         return res.status(400).json({ message: "Name, email, and message are required." });
     }
 
-    const targetEmail = "sbwork429@gmail.com";
-    const insertSql = `
-        INSERT INTO contact_requests (SENDER_NAME, SENDER_EMAIL, MESSAGE, TARGET_EMAIL, STATUS)
-        VALUES (?, ?, ?, ?, 'SENT')
-    `;
+    const cleanName = String(name).trim();
+    const cleanEmail = String(email).trim();
+    const cleanMessage = String(message).trim();
 
-    db.query(insertSql, [name.trim(), email.trim(), message.trim(), targetEmail], async (err, result) => {
-        if (err) {
-            console.warn("Notice: Failed to log contact request in DB:", err.message);
+    const targetEmail = process.env.TARGET_EMAIL || process.env.CONTACT_EMAIL || process.env.GMAIL_USER || "sbwork429@gmail.com";
+    const formattedDate = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+
+    // 1. Log contact request into database
+    let insertId = null;
+    try {
+        const insertSql = `
+            INSERT INTO contact_requests (SENDER_NAME, SENDER_EMAIL, MESSAGE, TARGET_EMAIL, STATUS)
+            VALUES (?, ?, ?, ?, 'PENDING')
+        `;
+        const [result] = await new Promise((resolve) => {
+            db.query(insertSql, [cleanName, cleanEmail, cleanMessage, targetEmail], (err, r) => {
+                if (err) {
+                    console.warn("Notice: Failed to log contact request in DB:", err.message);
+                    resolve([null, err]);
+                } else {
+                    resolve([r, null]);
+                }
+            });
+        });
+        if (result && result.insertId) {
+            insertId = result.insertId;
         }
+    } catch (dbErr) {
+        console.warn("Notice: DB operation error:", dbErr.message);
+    }
 
-        const formattedDate = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
-
-        // Rich HTML Email Template ("Type Format")
-        const htmlContent = `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-                <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; padding: 24px; text-align: center;">
-                    <h2 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.3px;">🏎️ Velocity Rentals Support Request</h2>
-                    <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8;">New Customer Inquiry Received</p>
+    // 2. Build email template
+    const htmlContent = `
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+            <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; padding: 24px; text-align: center;">
+                <h2 style="margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.3px;">🏎️ Velocity Rentals Support Request</h2>
+                <p style="margin: 6px 0 0 0; font-size: 13px; color: #94a3b8;">New Customer Inquiry Received</p>
+            </div>
+            <div style="padding: 28px; color: #334155;">
+                <div style="background: #eff6ff; border-left: 4px solid #2563eb; padding: 16px; border-radius: 6px; margin-bottom: 24px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Sender Details</div>
+                    <div style="font-size: 16px; font-weight: 700; color: #0f172a;">${cleanName}</div>
+                    <div style="font-size: 14px; color: #2563eb; margin-top: 2px;">
+                        📧 <a href="mailto:${cleanEmail}" style="color: #2563eb; text-decoration: none; font-weight: 600;">${cleanEmail}</a>
+                    </div>
                 </div>
-                <div style="padding: 28px; color: #334155;">
-                    <div style="background: #eff6ff; border-left: 4px solid #2563eb; padding: 16px; border-radius: 6px; margin-bottom: 24px;">
-                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Sender Details</div>
-                        <div style="font-size: 16px; font-weight: 700; color: #0f172a;">${name.trim()}</div>
-                        <div style="font-size: 14px; color: #2563eb; margin-top: 2px;">
-                            📧 <a href="mailto:${email.trim()}" style="color: #2563eb; text-decoration: none; font-weight: 600;">${email.trim()}</a>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 24px;">
-                        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Message Content</div>
-                        <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 18px; border-radius: 8px; font-size: 15px; line-height: 1.6; color: #1e293b; white-space: pre-wrap;">${message.trim()}</div>
-                    </div>
-                    
-                    <div style="font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px; display: flex; justify-content: space-between;">
-                        <span>Velocity Rentals Support Portal</span>
-                        <span>${formattedDate}</span>
-                    </div>
+                
+                <div style="margin-bottom: 24px;">
+                    <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Message Content</div>
+                    <div style="background: #ffffff; border: 1px solid #cbd5e1; padding: 18px; border-radius: 8px; font-size: 15px; line-height: 1.6; color: #1e293b; white-space: pre-wrap;">${cleanMessage}</div>
+                </div>
+                
+                <div style="font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px; display: flex; justify-content: space-between;">
+                    <span>Velocity Rentals Support Portal</span>
+                    <span>${formattedDate}</span>
                 </div>
             </div>
-        `;
+        </div>
+    `;
 
-        const plainTextContent = `Velocity Rentals Support Request\n\nFrom: ${name.trim()} (${email.trim()})\nDate: ${formattedDate}\n\nMessage:\n${message.trim()}`;
+    const plainTextContent = `Velocity Rentals Support Request\n\nFrom: ${cleanName} (${cleanEmail})\nDate: ${formattedDate}\n\nMessage:\n${cleanMessage}`;
 
-        // Attempt Real Email Dispatch via Nodemailer
+    // 3. Dispatch Email via Nodemailer
+    let emailDelivered = false;
+    let dispatchErrorMessage = null;
+
+    const rawUser = process.env.GMAIL_USER || process.env.SMTP_USER || targetEmail;
+    const rawPass = process.env.GMAIL_PASS || process.env.SMTP_PASS || "";
+    const gmailUser = rawUser.trim();
+    const gmailPass = rawPass.replace(/\s+/g, "").trim();
+
+    if (gmailUser && gmailPass) {
         try {
-            const rawUser = process.env.GMAIL_USER || process.env.SMTP_USER || targetEmail;
-            const rawPass = process.env.GMAIL_PASS || process.env.SMTP_PASS || "";
-            const gmailUser = rawUser.trim();
-            const gmailPass = rawPass.replace(/\s+/g, "").trim();
-
             const transporter = nodemailer.createTransport({
                 host: "smtp.gmail.com",
                 port: 465,
@@ -1474,36 +1497,50 @@ app.post("/contact", (req, res) => {
             });
 
             const mailOptions = {
-                from: `"${name.trim()} via Velocity Rentals" <${gmailUser}>`,
+                from: `"${cleanName} via Velocity Rentals" <${gmailUser}>`,
                 to: targetEmail,
-                replyTo: email.trim(),
-                subject: `Velocity Rentals Support Request from ${name.trim()}`,
+                replyTo: cleanEmail,
+                subject: `Velocity Rentals Support Request from ${cleanName}`,
                 text: plainTextContent,
                 html: htmlContent
             };
 
-            if (gmailPass) {
-                transporter.sendMail(mailOptions).then(() => {
-                    console.log(`[REAL GMAIL DISPATCH SUCCESS] Support email delivered to ${targetEmail}`);
-                }).catch(mailErr => {
-                    console.warn("Mail dispatch notice (handled safely):", mailErr.message);
-                });
-            } else {
-                console.log(`[CONTACT FORM DISPATCH] Formatted request queued for ${targetEmail}:\n${plainTextContent}`);
-            }
+            const info = await transporter.sendMail(mailOptions);
+            emailDelivered = true;
+            console.log(`[REAL GMAIL DISPATCH SUCCESS] Delivered to ${targetEmail} (ID: ${info.messageId})`);
         } catch (mailErr) {
-            console.warn("Mail dispatch notice (handled safely):", mailErr.message);
+            dispatchErrorMessage = mailErr.message;
+            console.error("[GMAIL DISPATCH ERROR]:", mailErr.message);
         }
+    } else {
+        dispatchErrorMessage = "GMAIL_PASS not found in environment.";
+        console.warn(`[CONTACT FORM DISPATCH] Formatted request logged for ${targetEmail} (No SMTP credentials configured):\n${plainTextContent}`);
+    }
 
-        const encodedSubject = encodeURIComponent(`Contact Support Request from ${name.trim()}`);
-        const encodedBody = encodeURIComponent(`From: ${name.trim()} (${email.trim()})\n\nMessage:\n${message.trim()}`);
-        const mailtoUrl = `mailto:${targetEmail}?subject=${encodedSubject}&body=${encodedBody}`;
+    // 4. Update status in database
+    if (insertId) {
+        const finalStatus = emailDelivered ? "SENT" : "FAILED";
+        db.query("UPDATE contact_requests SET STATUS = ? WHERE REQUEST_ID = ?", [finalStatus, insertId], () => {});
+    }
 
-        res.status(201).json({
-            message: `Thank you, ${name.trim()}! Your message has been formatted and sent to ${targetEmail}.`,
+    const encodedSubject = encodeURIComponent(`Contact Support Request from ${cleanName}`);
+    const encodedBody = encodeURIComponent(`From: ${cleanName} (${cleanEmail})\n\nMessage:\n${cleanMessage}`);
+    const mailtoUrl = `mailto:${targetEmail}?subject=${encodedSubject}&body=${encodedBody}`;
+
+    if (emailDelivered) {
+        return res.status(200).json({
+            success: true,
+            message: `Thank you, ${cleanName}! Your message has been sent successfully to ${targetEmail}.`,
             target_email: targetEmail,
             mailto_url: mailtoUrl
         });
+    }
+
+    return res.status(200).json({
+        success: true,
+        message: `Thank you, ${cleanName}! Your message was received and logged. (Delivery notice: ${dispatchErrorMessage || 'Saved in database'})`,
+        target_email: targetEmail,
+        mailto_url: mailtoUrl
     });
 });
 

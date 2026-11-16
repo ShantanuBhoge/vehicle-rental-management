@@ -1,6 +1,8 @@
 node_modules/
 backend/node_modules/
+.env
 backend/.env
+scratch/
 *.log
 backend/server.log
 .DS_Store

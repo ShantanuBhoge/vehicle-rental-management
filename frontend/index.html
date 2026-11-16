@@ -26,22 +26,22 @@
                 <li class="nav-item active" onclick="switchTab('browseTab')">
                     <i class="fa-solid fa-compass"></i> Browse Vehicles
                 </li>
-                <li class="nav-item" id="navBookingsTab" onclick="switchTab('bookingsTab')" style="display: none;">
+                <li class="nav-item role-hidden" id="navBookingsTab" onclick="switchTab('bookingsTab')" style="display: none !important;">
                     <i class="fa-solid fa-receipt"></i> My Bookings
                 </li>
-                <li class="nav-item role-owner-only" onclick="switchTab('fleetTab')" style="display: none;">
+                <li class="nav-item role-owner-only role-hidden" onclick="switchTab('fleetTab')" style="display: none !important;">
                     <i class="fa-solid fa-list-check"></i> Fleet Management
                 </li>
-                <li class="nav-item role-owner-only" onclick="switchTab('addVehicleTab')" style="display: none;">
+                <li class="nav-item role-owner-only role-hidden" onclick="switchTab('addVehicleTab')" style="display: none !important;">
                     <i class="fa-solid fa-square-plus"></i> Add Vehicle
                 </li>
-                <li class="nav-item role-owner-only" onclick="openBranchModal()" style="display: none;">
+                <li class="nav-item role-owner-only role-hidden" onclick="openBranchModal()" style="display: none !important;">
                     <i class="fa-solid fa-building-circle-check"></i> Add Branch
                 </li>
-                <li class="nav-item role-owner-only" onclick="switchTab('maintenanceTab')" style="display: none;">
+                <li class="nav-item role-owner-only role-hidden" onclick="switchTab('maintenanceTab')" style="display: none !important;">
                     <i class="fa-solid fa-screwdriver-wrench"></i> Maintenance Hub
                 </li>
-                <li class="nav-item role-admin-only" onclick="switchTab('adminTab')" style="display: none;">
+                <li class="nav-item role-admin-only role-hidden" onclick="switchTab('adminTab')" style="display: none !important;">
                     <i class="fa-solid fa-user-shield"></i> Admin Panel
                 </li>
                 <li class="nav-item" onclick="switchTab('helpTab')">
@@ -1208,8 +1208,39 @@
                         document.getElementById("payEndDate").value = tomorrow;
                     });
 
-                    // NAVIGATION TABS
+                    // Helper to toggle nav items visibility with !important and role-hidden class
+                    function setNavItemsVisibility(elements, isVisible) {
+                        elements.forEach(el => {
+                            if (!el) return;
+                            if (isVisible) {
+                                el.classList.remove("role-hidden");
+                                el.style.setProperty("display", "inline-flex", "important");
+                            } else {
+                                el.classList.add("role-hidden");
+                                el.style.setProperty("display", "none", "important");
+                            }
+                        });
+                    }
+
+                    // NAVIGATION TABS WITH STRICT ROLE-BASED ACCESS CONTROL
                     function switchTab(tabId) {
+                        const role = (currentUser && currentUser.role) ? currentUser.role : "GUEST";
+
+                        // Role Guards: Prevent unauthorized tab switches on both mobile and desktop
+                        if (tabId === 'adminTab' && role !== 'ADMIN') {
+                            console.warn(`[ACCESS BLOCKED] Unauthorized attempt to open Admin Panel by '${role}'.`);
+                            tabId = 'browseTab';
+                        }
+                        if ((tabId === 'fleetTab' || tabId === 'addVehicleTab' || tabId === 'maintenanceTab') && role !== 'OWNER' && role !== 'ADMIN') {
+                            console.warn(`[ACCESS BLOCKED] Unauthorized attempt to open Owner tab '${tabId}' by '${role}'.`);
+                            tabId = 'browseTab';
+                        }
+                        if (tabId === 'bookingsTab' && role === 'GUEST') {
+                            console.warn("[ACCESS BLOCKED] Unauthorized attempt to open Bookings tab by GUEST.");
+                            openAuthModal();
+                            return;
+                        }
+
                         document.querySelectorAll(".tab-pane").forEach(el => el.classList.remove("active"));
                         document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
 
@@ -1233,13 +1264,13 @@
                         });
                         if (activeNav) activeNav.classList.add("active");
 
-                        // Auto-fetch data for the active tab
+                        // Auto-fetch data for the active tab (only if permitted)
                         if (tabId === 'browseTab') loadVehicles();
-                        if (tabId === 'fleetTab') loadVehicles();
-                        if (tabId === 'bookingsTab') loadBookings();
-                        if (tabId === 'maintenanceTab') loadMaintenance();
-                        if (tabId === 'addVehicleTab') loadDropdownData();
-                        if (tabId === 'adminTab') loadAdminPanel();
+                        if (tabId === 'fleetTab' && (role === 'OWNER' || role === 'ADMIN')) loadVehicles();
+                        if (tabId === 'bookingsTab' && role !== 'GUEST') loadBookings();
+                        if (tabId === 'maintenanceTab' && (role === 'OWNER' || role === 'ADMIN')) loadMaintenance();
+                        if (tabId === 'addVehicleTab' && (role === 'OWNER' || role === 'ADMIN')) loadDropdownData();
+                        if (tabId === 'adminTab' && role === 'ADMIN') loadAdminPanel();
                     }
 
                     // ROLE ACCESS UI UPDATES
@@ -1265,10 +1296,10 @@
                             roleBadge.className = "role-badge guest";
                             roleBadge.innerHTML = `<i class="fa-solid fa-user-slash"></i> Guest Mode`;
                             authBtnText.innerText = "Sign In";
-                            customerNavs.forEach(el => el.style.display = "none");
-                            ownerNavs.forEach(el => el.style.display = "none");
-                            adminNavs.forEach(el => el.style.display = "none");
-                            if (bookingsTabNav) bookingsTabNav.style.display = "none";
+                            setNavItemsVisibility(customerNavs, false);
+                            setNavItemsVisibility(ownerNavs, false);
+                            setNavItemsVisibility(adminNavs, false);
+                            setNavItemsVisibility([bookingsTabNav], false);
                             if (modulePill) modulePill.innerHTML = `<i class="fa-solid fa-compass"></i> Public Rental Portal`;
                             if (heroHeading) heroHeading.innerText = "Premium Vehicle Rental & Fleet Management";
                             if (heroSubheading) heroSubheading.innerText = "Rent luxury cars, bikes, and SUVs seamlessly, or explore top-rated rental vehicles across multiple cities.";
@@ -1282,11 +1313,11 @@
                             roleBadge.className = "role-badge customer";
                             roleBadge.innerHTML = `<i class="fa-solid fa-user-check"></i> Customer: ${currentUser.name}`;
                             authBtnText.innerText = "Sign Out";
-                            customerNavs.forEach(el => el.style.display = "flex");
-                            ownerNavs.forEach(el => el.style.display = "none");
-                            adminNavs.forEach(el => el.style.display = "none");
+                            setNavItemsVisibility(customerNavs, true);
+                            setNavItemsVisibility(ownerNavs, false);
+                            setNavItemsVisibility(adminNavs, false);
+                            setNavItemsVisibility([bookingsTabNav], true);
                             if (bookingsTabNav) {
-                                bookingsTabNav.style.display = "flex";
                                 bookingsTabNav.innerHTML = `<i class="fa-solid fa-receipt"></i> My Bookings & Receipts`;
                             }
                             if (bookingsTitle) bookingsTitle.innerHTML = `<i class="fa-solid fa-receipt" style="color: var(--primary-blue);"></i> My Rental History & Receipts`;
@@ -1305,11 +1336,11 @@
                             roleBadge.className = "role-badge owner";
                             roleBadge.innerHTML = `<i class="fa-solid fa-user-gear"></i> Owner: ${currentUser.name}`;
                             authBtnText.innerText = "Sign Out";
-                            customerNavs.forEach(el => el.style.display = "none");
-                            ownerNavs.forEach(el => el.style.display = "flex");
-                            adminNavs.forEach(el => el.style.display = "none");
+                            setNavItemsVisibility(customerNavs, false);
+                            setNavItemsVisibility(ownerNavs, true);
+                            setNavItemsVisibility(adminNavs, false);
+                            setNavItemsVisibility([bookingsTabNav], true);
                             if (bookingsTabNav) {
-                                bookingsTabNav.style.display = "flex";
                                 bookingsTabNav.innerHTML = `<i class="fa-solid fa-receipt"></i> Fleet Rental History`;
                             }
                             if (bookingsTitle) bookingsTitle.innerHTML = `<i class="fa-solid fa-receipt" style="color: var(--primary-blue);"></i> Fleet Rental & Payment History`;
@@ -1338,11 +1369,11 @@
                             roleBadge.className = "role-badge admin";
                             roleBadge.innerHTML = `<i class="fa-solid fa-crown"></i> Admin: ${currentUser.name}`;
                             authBtnText.innerText = "Sign Out";
-                            customerNavs.forEach(el => el.style.display = "none");
-                            ownerNavs.forEach(el => el.style.display = "none");
-                            adminNavs.forEach(el => el.style.display = "flex");
+                            setNavItemsVisibility(customerNavs, false);
+                            setNavItemsVisibility(ownerNavs, false);
+                            setNavItemsVisibility(adminNavs, true);
+                            setNavItemsVisibility([bookingsTabNav], true);
                             if (bookingsTabNav) {
-                                bookingsTabNav.style.display = "flex";
                                 bookingsTabNav.innerHTML = `<i class="fa-solid fa-receipt"></i> All Payment History`;
                             }
                             if (bookingsTitle) bookingsTitle.innerHTML = `<i class="fa-solid fa-receipt" style="color: var(--primary-blue);"></i> All System Payment & Rental History`;
@@ -2071,6 +2102,10 @@
 
                     // ADMIN PANEL FUNCTIONS
                     async function loadAdminPanel() {
+                        if (!currentUser || currentUser.role !== "ADMIN") {
+                            console.warn("[ACCESS DENIED] User is not ADMIN. loadAdminPanel blocked.");
+                            return;
+                        }
                         try {
                             const [statsRes, custRes, ownerRes, vehRes] = await Promise.all([
                                 apiFetch(`${API_URL}/admins/stats`),
@@ -2170,6 +2205,7 @@
                     let allAdminBookingsCache = [];
 
                     async function loadAdminReceipts() {
+                        if (!currentUser || currentUser.role !== "ADMIN") return;
                         try {
                             const res = await apiFetch(`${API_URL}/bookings`);
                             const tbody = document.getElementById("admBookingsTableBody");
