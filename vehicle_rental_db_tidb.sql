@@ -1,0 +1,229 @@
+-- ============================================================
+-- Velocity Rentals - TiDB Cloud (No FK Constraints version)
+-- ============================================================
+
+CREATE DATABASE IF NOT EXISTS vehicle_rental_db;
+USE vehicle_rental_db;
+
+DROP TABLE IF EXISTS returns;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS invoices;
+DROP TABLE IF EXISTS rentals;
+DROP TABLE IF EXISTS maintenance_records;
+DROP TABLE IF EXISTS maintenance;
+DROP TABLE IF EXISTS bookings;
+DROP TABLE IF EXISTS vehicles;
+DROP TABLE IF EXISTS vehicle_categories;
+DROP TABLE IF EXISTS owners;
+DROP TABLE IF EXISTS customers;
+DROP TABLE IF EXISTS branches;
+DROP TABLE IF EXISTS admins;
+DROP TABLE IF EXISTS contact_requests;
+
+CREATE TABLE admins (
+  ADMIN_ID int NOT NULL AUTO_INCREMENT,
+  NAME varchar(100) NOT NULL,
+  EMAIL varchar(100) NOT NULL,
+  PASSWORD varchar(255) NOT NULL,
+  ROLE varchar(20) DEFAULT 'ADMIN',
+  CREATED_AT timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (ADMIN_ID),
+  UNIQUE KEY uq_admin_email (EMAIL)
+);
+
+CREATE TABLE branches (
+  BRANCH_ID int NOT NULL AUTO_INCREMENT,
+  BRANCH_NAME varchar(100) NOT NULL,
+  CITY varchar(50) NOT NULL,
+  CREATED_BY_OWNER_ID int DEFAULT NULL,
+  PHONE varchar(20) DEFAULT NULL,
+  LOCATION_AREA varchar(255) DEFAULT NULL,
+  PRIMARY KEY (BRANCH_ID)
+);
+
+CREATE TABLE contact_requests (
+  REQUEST_ID int NOT NULL AUTO_INCREMENT,
+  SENDER_NAME varchar(100) NOT NULL,
+  SENDER_EMAIL varchar(100) NOT NULL,
+  MESSAGE text NOT NULL,
+  TARGET_EMAIL varchar(100) DEFAULT 'sbwork429@gmail.com',
+  STATUS varchar(20) DEFAULT 'SENT',
+  CREATED_AT timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (REQUEST_ID)
+);
+
+CREATE TABLE customers (
+  CUSTOMER_ID int NOT NULL AUTO_INCREMENT,
+  FIRST_NAME varchar(50) NOT NULL,
+  LAST_NAME varchar(50) NOT NULL,
+  EMAIL varchar(100) NOT NULL,
+  PHONE varchar(15) NOT NULL,
+  DRIVING_LICENSE_NO bigint NOT NULL,
+  PASSWORD varchar(255) NOT NULL DEFAULT '123456',
+  CREATED_AT timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (CUSTOMER_ID),
+  UNIQUE KEY uq_cust_email (EMAIL),
+  UNIQUE KEY uq_cust_phone (PHONE),
+  UNIQUE KEY uq_cust_license (DRIVING_LICENSE_NO)
+);
+
+CREATE TABLE vehicle_categories (
+  CATEGORY_ID int NOT NULL AUTO_INCREMENT,
+  CATEGORY_NAME varchar(50) NOT NULL,
+  PRIMARY KEY (CATEGORY_ID),
+  UNIQUE KEY uq_cat_name (CATEGORY_NAME)
+);
+
+CREATE TABLE owners (
+  OWNER_ID int NOT NULL AUTO_INCREMENT,
+  BRANCH_ID int DEFAULT 1,
+  FIRST_NAME varchar(50) NOT NULL,
+  LAST_NAME varchar(50) NOT NULL,
+  EMAIL varchar(100) NOT NULL,
+  PHONE varchar(15) NOT NULL,
+  BANK_ACCOUNT_NO bigint NOT NULL,
+  KYC_STATUS varchar(20) DEFAULT 'VERIFIED',
+  ROLE varchar(20) DEFAULT 'OWNER',
+  STATUS varchar(20) DEFAULT 'ACTIVE',
+  PASSWORD varchar(255) NOT NULL DEFAULT '123456',
+  CREATED_AT timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (OWNER_ID),
+  UNIQUE KEY uq_owner_email (EMAIL),
+  UNIQUE KEY uq_owner_phone (PHONE),
+  UNIQUE KEY uq_owner_bank (BANK_ACCOUNT_NO)
+);
+
+CREATE TABLE vehicles (
+  VEHICLE_ID int NOT NULL AUTO_INCREMENT,
+  CATEGORY_ID int NOT NULL,
+  BRANCH_ID int NOT NULL,
+  OWNER_ID int NOT NULL,
+  REGISTRATION_NO varchar(20) NOT NULL,
+  STATUS varchar(20) NOT NULL DEFAULT 'AVAILABLE',
+  MAKE varchar(50) DEFAULT NULL,
+  MODEL varchar(50) DEFAULT NULL,
+  YEAR int DEFAULT NULL,
+  DAILY_RATE decimal(10,2) DEFAULT 0.00,
+  DESCRIPTION text,
+  IMAGE_URL varchar(500) DEFAULT NULL,
+  PRIMARY KEY (VEHICLE_ID),
+  UNIQUE KEY uq_reg_no (REGISTRATION_NO)
+);
+
+CREATE TABLE bookings (
+  BOOKING_ID int NOT NULL AUTO_INCREMENT,
+  CUSTOMER_ID int NOT NULL,
+  VEHICLE_ID int NOT NULL,
+  BRANCH_ID_PICKUP int DEFAULT 1,
+  BRANCH_ID_RETURN int DEFAULT 1,
+  BOOKING_DATE date DEFAULT NULL,
+  STATUS varchar(20) NOT NULL DEFAULT 'PAID',
+  CUSTOMER_NAME varchar(100) DEFAULT NULL,
+  START_DATE date DEFAULT NULL,
+  END_DATE date DEFAULT NULL,
+  TOTAL_AMOUNT decimal(10,2) DEFAULT 0.00,
+  CREATED_AT timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (BOOKING_ID)
+);
+
+CREATE TABLE maintenance (
+  MAINTENANCE_ID int NOT NULL AUTO_INCREMENT,
+  VEHICLE_ID int NOT NULL,
+  TYPE varchar(100) NOT NULL,
+  COST decimal(10,2) NOT NULL,
+  STATUS varchar(20) NOT NULL,
+  PRIMARY KEY (MAINTENANCE_ID)
+);
+
+CREATE TABLE maintenance_records (
+  MAINTENANCE_ID int NOT NULL AUTO_INCREMENT,
+  VEHICLE_ID int NOT NULL,
+  INSURANCE_POLICY_NO varchar(100) DEFAULT NULL,
+  INSURANCE_EXPIRY date DEFAULT NULL,
+  PUC_CERTIFICATE_NO varchar(100) DEFAULT NULL,
+  PUC_EXPIRY date DEFAULT NULL,
+  NEXT_SERVICE_DATE date DEFAULT NULL,
+  VEHICLE_CONDITION varchar(50) DEFAULT 'EXCELLENT',
+  NOTES text,
+  UPDATED_AT timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (MAINTENANCE_ID),
+  UNIQUE KEY uq_maint_vehicle (VEHICLE_ID)
+);
+
+CREATE TABLE rentals (
+  RENTAL_ID int NOT NULL AUTO_INCREMENT,
+  BOOKING_ID int NOT NULL,
+  OWNER_ID int NOT NULL,
+  ACTUAL_PICKUP_DATE date DEFAULT NULL,
+  ACTUAL_RETURN_DATE date DEFAULT NULL,
+  STATUS varchar(20) NOT NULL,
+  PRIMARY KEY (RENTAL_ID),
+  UNIQUE KEY uq_rental_booking (BOOKING_ID)
+);
+
+CREATE TABLE invoices (
+  INVOICE_ID int NOT NULL AUTO_INCREMENT,
+  RENTAL_ID int NOT NULL,
+  TOTAL_AMOUNT decimal(10,2) NOT NULL,
+  STATUS varchar(20) NOT NULL,
+  PRIMARY KEY (INVOICE_ID),
+  UNIQUE KEY uq_invoice_rental (RENTAL_ID)
+);
+
+CREATE TABLE payments (
+  PAYMENT_ID int NOT NULL AUTO_INCREMENT,
+  RENTAL_ID int DEFAULT NULL,
+  AMOUNT decimal(10,2) NOT NULL,
+  STATUS varchar(20) NOT NULL,
+  BOOKING_ID int DEFAULT NULL,
+  CUSTOMER_ID int DEFAULT NULL,
+  PAYMENT_METHOD varchar(50) DEFAULT 'UPI',
+  TRANSACTION_REF varchar(100) DEFAULT NULL,
+  PAYMENT_DATE timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (PAYMENT_ID)
+);
+
+CREATE TABLE returns (
+  RETURN_ID int NOT NULL AUTO_INCREMENT,
+  RENTAL_ID int NOT NULL,
+  RETURN_DATE date NOT NULL,
+  FEES decimal(10,2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (RETURN_ID),
+  UNIQUE KEY uq_return_rental (RENTAL_ID)
+);
+
+-- ============================================================
+-- SEED DATA
+-- ============================================================
+
+INSERT INTO admins (NAME, EMAIL, PASSWORD, ROLE) VALUES
+('Admin', 'admin@velocity.com', 'admin123', 'ADMIN');
+
+INSERT INTO branches (BRANCH_NAME, CITY, PHONE, LOCATION_AREA) VALUES
+('Velocity Pune HQ', 'Pune', '9876543210', 'Baner, Pune'),
+('Velocity Mumbai', 'Mumbai', '9876543211', 'Andheri West, Mumbai'),
+('Velocity Bangalore', 'Bangalore', '9876543212', 'Koramangala, Bangalore');
+
+INSERT INTO vehicle_categories (CATEGORY_NAME) VALUES
+('SUV'), ('Sedan'), ('Hatchback'), ('Luxury');
+
+INSERT INTO customers (FIRST_NAME, LAST_NAME, EMAIL, PHONE, DRIVING_LICENSE_NO, PASSWORD) VALUES
+('SHANTANU', 'BHOGE', 'SHANTANU@GMAIL.COM', '9999999999', 1234567890, '123456'),
+('Rahul', 'Sharma', 'rahul@gmail.com', '9988776655', 9876543210, '123456');
+
+INSERT INTO owners (BRANCH_ID, FIRST_NAME, LAST_NAME, EMAIL, PHONE, BANK_ACCOUNT_NO, KYC_STATUS, ROLE, STATUS, PASSWORD) VALUES
+(1, 'Rajesh', 'Patil', 'rajesh@velocity.com', '9111111111', 1234567891234567, 'VERIFIED', 'OWNER', 'ACTIVE', '123456'),
+(2, 'Suresh', 'Kumar', 'suresh@velocity.com', '9222222222', 2345678901234567, 'VERIFIED', 'OWNER', 'ACTIVE', '123456');
+
+INSERT INTO vehicles (CATEGORY_ID, BRANCH_ID, OWNER_ID, REGISTRATION_NO, STATUS, MAKE, MODEL, YEAR, DAILY_RATE, DESCRIPTION) VALUES
+(1, 1, 1, 'MH12AB1234', 'AVAILABLE', 'Toyota', 'Fortuner', 2022, 4500.00, 'Premium SUV with 7 seats'),
+(2, 1, 1, 'MH12CD5678', 'AVAILABLE', 'Honda', 'City', 2023, 2000.00, 'Comfortable sedan for city drives'),
+(3, 1, 1, 'MH12EF9012', 'AVAILABLE', 'Maruti', 'Swift', 2022, 1200.00, 'Fuel efficient hatchback'),
+(4, 2, 2, 'MH01GH3456', 'AVAILABLE', 'BMW', '5 Series', 2023, 8000.00, 'Luxury business sedan'),
+(1, 2, 2, 'MH01IJ7890', 'AVAILABLE', 'Hyundai', 'Creta', 2023, 2800.00, 'Popular compact SUV'),
+(2, 3, 2, 'KA01KL1234', 'AVAILABLE', 'Tata', 'Nexon', 2022, 2200.00, 'Safe and stylish compact SUV'),
+(3, 3, 2, 'KA01MN5678', 'AVAILABLE', 'Maruti', 'Baleno', 2023, 1400.00, 'Smart premium hatchback'),
+(4, 1, 1, 'MH12OP9012', 'AVAILABLE', 'Mercedes', 'C-Class', 2023, 10000.00, 'Ultimate luxury experience');
+
+SELECT 'SUCCESS: Database ready!' AS result;
+SHOW TABLES;
