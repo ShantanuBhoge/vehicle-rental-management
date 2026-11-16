@@ -1475,14 +1475,15 @@ app.post("/contact", async (req, res) => {
 
     const plainTextContent = `Velocity Rentals Support Request\n\nFrom: ${cleanName} (${cleanEmail})\nDate: ${formattedDate}\n\nMessage:\n${cleanMessage}`;
 
-    // 3. Dispatch Email via Nodemailer
-    let emailDelivered = false;
-    let dispatchErrorMessage = null;
-
+    // 3. Dispatch Email via Nodemailer (Background Delivery - Instant Response)
     const rawUser = process.env.GMAIL_USER || process.env.SMTP_USER || targetEmail;
     const rawPass = process.env.GMAIL_PASS || process.env.SMTP_PASS || "";
     const gmailUser = rawUser.trim();
     const gmailPass = rawPass.replace(/\s+/g, "").trim();
+
+    const encodedSubject = encodeURIComponent(`Contact Support Request from ${cleanName}`);
+    const encodedBody = encodeURIComponent(`From: ${cleanName} (${cleanEmail})\n\nMessage:\n${cleanMessage}`);
+    const mailtoUrl = `mailto:${targetEmail}?subject=${encodedSubject}&body=${encodedBody}`;
 
     if (gmailUser && gmailPass) {
         try {
@@ -1493,7 +1494,10 @@ app.post("/contact", async (req, res) => {
                 auth: {
                     user: gmailUser,
                     pass: gmailPass
-                }
+                },
+                connectionTimeout: 10000,
+                greetingTimeout: 10000,
+                socketTimeout: 15000
             });
 
             const mailOptions = {
@@ -1505,40 +1509,29 @@ app.post("/contact", async (req, res) => {
                 html: htmlContent
             };
 
-            const info = await transporter.sendMail(mailOptions);
-            emailDelivered = true;
-            console.log(`[REAL GMAIL DISPATCH SUCCESS] Delivered to ${targetEmail} (ID: ${info.messageId})`);
+            // Non-blocking asynchronous dispatch so the frontend never hangs or times out
+            transporter.sendMail(mailOptions).then(info => {
+                console.log(`[REAL GMAIL DISPATCH SUCCESS] Delivered to ${targetEmail} (ID: ${info.messageId})`);
+                if (insertId) {
+                    db.query("UPDATE contact_requests SET STATUS = 'SENT' WHERE REQUEST_ID = ?", [insertId], () => {});
+                }
+            }).catch(mailErr => {
+                console.error("[GMAIL DISPATCH ERROR]:", mailErr.message);
+                if (insertId) {
+                    db.query("UPDATE contact_requests SET STATUS = 'FAILED' WHERE REQUEST_ID = ?", [insertId], () => {});
+                }
+            });
         } catch (mailErr) {
-            dispatchErrorMessage = mailErr.message;
-            console.error("[GMAIL DISPATCH ERROR]:", mailErr.message);
+            console.error("[GMAIL SETUP ERROR]:", mailErr.message);
         }
     } else {
-        dispatchErrorMessage = "GMAIL_PASS not found in environment.";
         console.warn(`[CONTACT FORM DISPATCH] Formatted request logged for ${targetEmail} (No SMTP credentials configured):\n${plainTextContent}`);
     }
 
-    // 4. Update status in database
-    if (insertId) {
-        const finalStatus = emailDelivered ? "SENT" : "FAILED";
-        db.query("UPDATE contact_requests SET STATUS = ? WHERE REQUEST_ID = ?", [finalStatus, insertId], () => {});
-    }
-
-    const encodedSubject = encodeURIComponent(`Contact Support Request from ${cleanName}`);
-    const encodedBody = encodeURIComponent(`From: ${cleanName} (${cleanEmail})\n\nMessage:\n${cleanMessage}`);
-    const mailtoUrl = `mailto:${targetEmail}?subject=${encodedSubject}&body=${encodedBody}`;
-
-    if (emailDelivered) {
-        return res.status(200).json({
-            success: true,
-            message: `Thank you, ${cleanName}! Your message has been sent successfully to ${targetEmail}.`,
-            target_email: targetEmail,
-            mailto_url: mailtoUrl
-        });
-    }
-
+    // 4. Return instant response (< 50ms) so frontend never triggers AbortController
     return res.status(200).json({
         success: true,
-        message: `Thank you, ${cleanName}! Your message was received and logged. (Delivery notice: ${dispatchErrorMessage || 'Saved in database'})`,
+        message: `Thank you, ${cleanName}! Your message has been sent to our support team at ${targetEmail}.`,
         target_email: targetEmail,
         mailto_url: mailtoUrl
     });

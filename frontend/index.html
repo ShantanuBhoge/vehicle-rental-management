@@ -1177,7 +1177,11 @@
                                 }
                                 lastError = new Error(`HTTP ${res.status}`);
                             } catch (err) {
-                                lastError = err;
+                                if (err.name === "AbortError" || (err.message && err.message.toLowerCase().includes("abort"))) {
+                                    lastError = new Error("Connection timed out. Please ensure the backend server is running on port 5000.");
+                                } else {
+                                    lastError = err;
+                                }
                             }
                         }
                         throw lastError || new Error("Failed to connect to backend server");
