@@ -6,6 +6,7 @@ const cors = require("cors");
 const db = require("./db");
 const nodemailer = require("nodemailer");
 const PDFDocument = require("pdfkit");
+const dns = require("dns");
 
 const app = express();
 
@@ -1476,6 +1477,17 @@ function maskEmail(email) {
 }
 
 // Build primary SMTP configuration respecting env overrides
+// Render instances may not have an IPv6 route. Nodemailer/Node can otherwise
+// select Gmail's AAAA record even when `family: 4` is present in transport
+// options, causing ENETUNREACH before authentication is attempted.
+function forceIpv4Lookup(hostname, options, callback) {
+    if (typeof options === "function") {
+        callback = options;
+        options = {};
+    }
+    dns.lookup(hostname, { ...options, family: 4, all: false }, callback);
+}
+
 function getPrimaryTransportConfig(user, pass) {
     const host = process.env.SMTP_HOST || "smtp.gmail.com";
     const port = process.env.SMTP_PORT ? parseInt(process.env.SMTP_PORT, 10) : 465;
@@ -1487,7 +1499,8 @@ function getPrimaryTransportConfig(user, pass) {
         host,
         port,
         secure,
-        family: 4, // Force IPv4 to prevent cloud container DNS timeouts
+        family: 4,
+        lookup: forceIpv4Lookup,
         auth: { user, pass },
         connectionTimeout: 8000,
         greetingTimeout: 8000,
@@ -1512,7 +1525,8 @@ function getFallbackTransportConfig(user, pass) {
         port: fallbackPort,
         secure: fallbackSecure,
         requireTLS: !fallbackSecure,
-        family: 4, // Force IPv4
+        family: 4,
+        lookup: forceIpv4Lookup,
         auth: { user, pass },
         connectionTimeout: 8000,
         greetingTimeout: 8000,
