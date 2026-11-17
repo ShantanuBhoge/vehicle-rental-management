@@ -22,6 +22,12 @@ app.use((req, res, next) => {
 app.use(cors());
 app.use(express.json());
 
+// Render health checks must reach the Express process before any external
+// services (database or SMTP) are needed.
+app.get("/health", (_req, res) => {
+    res.status(200).json({ status: "ok" });
+});
+
 // Serve static frontend files directly so running 'node app.js' serves the full web app
 const frontendDir = path.join(__dirname, "../frontend");
 app.use(express.static(frontendDir));
@@ -1719,6 +1725,8 @@ app.post("/contact", async (req, res) => {
     const cleanSenderEmail = String(email).trim();
     const cleanMessage = String(message).trim();
 
+    console.log(`[CONTACT RECEIVED] name=${cleanName.slice(0, 80)} email=${maskEmail(cleanSenderEmail)}`);
+
     const targetEmail = process.env.TARGET_EMAIL || process.env.CONTACT_EMAIL || process.env.GMAIL_USER || "sbwork429@gmail.com";
     const formattedDate = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
 
@@ -1792,6 +1800,13 @@ app.post("/contact", async (req, res) => {
             html: htmlContent
         });
 
+        // A dispatcher may resolve without sending (for example, when SMTP
+        // credentials are absent). Treat that as a delivery failure; never
+        // show the customer a successful send until a provider confirms it.
+        if (!dispatchResult || !dispatchResult.success) {
+            throw new Error(dispatchResult?.reason || "Email provider did not confirm delivery");
+        }
+
         if (insertId) {
             db.query("UPDATE contact_requests SET STATUS = 'SENT' WHERE REQUEST_ID = ?", [insertId], () => {});
         }
@@ -1809,12 +1824,10 @@ app.post("/contact", async (req, res) => {
             db.query("UPDATE contact_requests SET STATUS = 'FAILED' WHERE REQUEST_ID = ?", [insertId], () => {});
         }
 
-        return res.status(200).json({
-            success: true,
-            message: `Thank you, ${cleanName}! Your message was received and logged. (Delivery notice: Direct email notification could not be dispatched: ${dispatchErr.message})`,
-            target_email: targetEmail,
-            mailto_url: mailtoUrl,
-            error: dispatchErr.message
+        return res.status(502).json({
+            success: false,
+            message: "We received your message, but email delivery could not be confirmed. Please try again later.",
+            error: process.env.NODE_ENV === "production" ? "EMAIL_DELIVERY_FAILED" : dispatchErr.message
         });
     }
 });

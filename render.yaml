@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: vehicle-rental-management
+    runtime: node
+    plan: free
+    buildCommand: npm install --prefix backend
+    startCommand: node backend/app.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production

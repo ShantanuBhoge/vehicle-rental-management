@@ -5,9 +5,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Velocity | Vehicle Rental & Fleet Management</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="alternate icon" href="favicon.svg">
     <link rel="stylesheet" href="style.css?v=2.6">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Set API_BASE_URL in config.js only when the frontend and API are separate services. -->
+    <script src="config.js"></script>
 </head>
 
 <body>
@@ -1174,13 +1178,21 @@
          FRONTEND JAVASCRIPT LOGIC
          ======================================================= -->
                 <script>
-                    let activeApiBase = (window.location.hostname && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1"))
-                        ? window.location.origin
-                        : ((window.location.hostname === "localhost") ? "http://localhost:5000" : "http://127.0.0.1:5000");
+                    const configuredApiBase = String(window.APP_CONFIG?.API_BASE_URL || "").replace(/\/$/, "");
+                    const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+                    // Production defaults to a relative API path: the Render web service runs this
+                    // frontend and Express together. A separately deployed frontend can set its
+                    // public HTTPS API origin in config.js without ever shipping localhost.
+                    let activeApiBase = configuredApiBase || (isLocalHost
+                        ? ((window.location.hostname === "localhost") ? "http://localhost:5000" : "http://127.0.0.1:5000")
+                        : "");
 
                     function getBackendCandidates(path) {
                         const hostname = window.location.hostname || "";
-                        // If deployed on Render.com or custom domain, use relative path first
+                        if (configuredApiBase) {
+                            return [`${configuredApiBase}${path}`];
+                        }
+                        // The deployed Render service serves both the frontend and Express.
                         if (hostname && !hostname.includes("localhost") && !hostname.includes("127.0.0.1")) {
                             return [path];
                         }
@@ -1209,7 +1221,7 @@
                         for (const target of candidates) {
                             try {
                                 const controller = new AbortController();
-                                const timer = setTimeout(() => controller.abort(), 15000);
+                                const timer = setTimeout(() => controller.abort(), 30000);
                                 const res = await fetch(target, { ...options, signal: controller.signal });
                                 clearTimeout(timer);
                                 if (res.ok) {
@@ -1226,7 +1238,7 @@
                                 lastError = new Error(`HTTP ${res.status}`);
                             } catch (err) {
                                 if (err.name === "AbortError" || (err.message && err.message.toLowerCase().includes("abort"))) {
-                                    lastError = new Error("Connection timed out. Please ensure the backend server is running on port 5000.");
+                                    lastError = new Error("The API request timed out. Please try again shortly.");
                                 } else {
                                     lastError = err;
                                 }
